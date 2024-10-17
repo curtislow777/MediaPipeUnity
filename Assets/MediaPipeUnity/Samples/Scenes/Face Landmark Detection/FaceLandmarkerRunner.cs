@@ -17,8 +17,10 @@ namespace Mediapipe.Unity.Sample.FaceLandmarkDetection
     public readonly FaceLandmarkDetectionConfig config = new FaceLandmarkDetectionConfig();
 
     // Landmarks for the left and right eye for EAR calculation
-    private readonly int[] leftEyeIndices = new int[] { 33, 160, 158, 133, 153, 144 };
-    private readonly int[] rightEyeIndices = new int[] { 362, 387, 385, 263, 373, 380 };
+    private readonly int[] leftEyeIndices = new int[] { 362, 387, 385, 263, 380, 373 }; 
+    private readonly int[] rightEyeIndices = new int[] { 33, 160, 158, 133, 153, 144 };
+
+
 
     private const float EAR_THRESHOLD = 0.25f;  // Adjust threshold if needed
 
