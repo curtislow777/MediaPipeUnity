@@ -34,6 +34,9 @@ namespace Mediapipe.Unity.Sample.FaceLandmarkDetection
 
     public DebugUI debugUI;  // Reference to the UI script for text updates
 
+    public List<Vector3> CurrentFaceLandmarks { get; private set; }
+
+
     public override void Stop()
     {
       base.Stop();
@@ -163,6 +166,19 @@ namespace Mediapipe.Unity.Sample.FaceLandmarkDetection
           Vector3[] leftEyeLandmarks = new Vector3[6];
           Vector3[] rightEyeLandmarks = new Vector3[6];
 
+
+
+
+          Debug.Log($"Landmarks detected facelandmarkrunner: {landmarks.Count}");
+          CurrentFaceLandmarks = new List<Vector3>();
+          foreach (var landmark in landmarks)
+          {
+            Vector3 landmarkPosition = new Vector3(landmark.x, landmark.y, landmark.z);
+            CurrentFaceLandmarks.Add(landmarkPosition);
+          }
+
+
+
           for (int i = 0; i < leftEyeIndices.Length; i++)
           {
             leftEyeLandmarks[i] = new Vector3(landmarks[leftEyeIndices[i]].x, landmarks[leftEyeIndices[i]].y, landmarks[leftEyeIndices[i]].z);
@@ -216,7 +232,7 @@ namespace Mediapipe.Unity.Sample.FaceLandmarkDetection
       {
         if (debugUI != null)
         {
-          debugUI.UpdateBlinkStatus("Eyes Blinked");  // Update text to "Eyes Blinked"
+          debugUI.UpdateStatus("Eyes Blinked");
         }
 
         isBlinking = true;  // Blink has started
@@ -226,7 +242,7 @@ namespace Mediapipe.Unity.Sample.FaceLandmarkDetection
       {
         if (debugUI != null)
         {
-          debugUI.UpdateBlinkStatus("Eyes Open");  // Update text to "Eyes Open"
+          debugUI.UpdateStatus("Eyes Open");
         }
 
         isBlinking = false;  // Blink has ended
