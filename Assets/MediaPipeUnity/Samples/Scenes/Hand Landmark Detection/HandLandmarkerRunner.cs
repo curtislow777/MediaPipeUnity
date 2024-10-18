@@ -204,17 +204,25 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
       if (result.handLandmarks == null || result.handLandmarks.Count == 0)
       {
         debugUI.UpdateStatus("No hand landmarks detected.");
+        debugUI.UpdateHandStatus("No hands are up."); // Update hand status
         return;
       }
 
       Debug.Log("Hand landmarks detected, proceeding to iterate over them...");
+
+      int totalFingersCount = 0;
+      bool leftHandUp = false;
+      bool rightHandUp = false;
+
+      // Prepare a message for displaying finger statuses for both hands
+      string combinedFingerStatus = "";
 
       for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
       {
         // Get the state of each finger for this hand
         var fingersUp = GetIndividualFingerStates(result, handIndex);
 
-        // Count how many fingers are up
+        // Count how many fingers are up for this hand
         int fingersCount = 0;
         foreach (var finger in fingersUp)
         {
@@ -222,12 +230,10 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
             fingersCount++;
         }
 
-        // Prepare a message for the count of fingers up
-        string countMessage = $"Hand {handIndex + 1} has {fingersCount} finger(s) up.";
-        debugUI.UpdateStatus(countMessage);  // Update the existing UI with the count
+        totalFingersCount += fingersCount; // Keep a total count of fingers up
 
         // Prepare a message to display which fingers are up
-        string fingerStatus = "Fingers Up: ";
+        string fingerStatus = $"Hand {handIndex + 1} ({result.handedness[handIndex].categories[0].categoryName}): ";
         foreach (var finger in fingersUp)
         {
           if (finger.Value)
@@ -239,17 +245,54 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
         // Trim the last comma and space
         fingerStatus = fingerStatus.TrimEnd(',', ' ');
 
-        // Update the finger status
-        debugUI.UpdateFingerStatus(fingerStatus); // Use the new method for finger status
+        // Combine finger status messages for both hands
+        combinedFingerStatus += fingerStatus + "\n";
 
-        // Update hand status based on the detected hand
-        string handedness = result.handedness[handIndex].categories[0].categoryName; // "Left" or "Right"
-        debugUI.UpdateHandStatus($"{handedness} Hand is up."); // Update the new text element for hand status
+        // Determine hand status
+        if (result.handedness[handIndex].categories[0].categoryName == "Left")
+        {
+          leftHandUp = fingersCount > 0; // Set flag if left hand is up
+        }
+        else if (result.handedness[handIndex].categories[0].categoryName == "Right")
+        {
+          rightHandUp = fingersCount > 0; // Set flag if right hand is up
+        }
 
         Debug.Log(fingerStatus);
       }
+
+      // Update total count message
+      string countMessage = $"Total fingers up: {totalFingersCount}.";
+      debugUI.UpdateStatus(countMessage); // Update the existing UI with the count
+
+      // Update hand status message
+      string handStatusMessage;
+      if (leftHandUp && rightHandUp)
+      {
+        handStatusMessage = "Both hands are up.";
+      }
+      else if (leftHandUp)
+      {
+        handStatusMessage = "Left hand is up.";
+      }
+      else if (rightHandUp)
+      {
+        handStatusMessage = "Right hand is up.";
+      }
+      else
+      {
+        handStatusMessage = "No hands are up.";
+      }
+
+      debugUI.UpdateHandStatus(handStatusMessage); // Update the new text element for hand status
+
+      // Update the finger status text for both hands
+      debugUI.UpdateFingerStatus(combinedFingerStatus.TrimEnd('\n')); // Show which fingers are up for both hands
+
       _handLandmarkerResultAnnotationController.DrawLater(result);
     }
+
+
 
 
     private int CountFingers(HandLandmarkerResult result, int handIndex)
