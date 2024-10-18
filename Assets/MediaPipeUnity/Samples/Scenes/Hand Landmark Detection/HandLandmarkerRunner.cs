@@ -21,7 +21,10 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
 
     public readonly HandLandmarkDetectionConfig config = new HandLandmarkDetectionConfig();
 
-    public DebugUI debugUI; 
+    public DebugUI debugUI;
+
+    public GameObject testModel;
+
 
     private Dictionary<string, bool> GetIndividualFingerStates(HandLandmarkerResult result, int handIndex)
     {
@@ -208,6 +211,10 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
 
     for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
     {
+
+
+
+
         // Get the state of each finger for this hand
         var fingersUp = GetIndividualFingerStates(result, handIndex);
 
