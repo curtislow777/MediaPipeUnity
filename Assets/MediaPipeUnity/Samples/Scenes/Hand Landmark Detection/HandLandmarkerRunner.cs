@@ -6,6 +6,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using Mediapipe.Tasks.Vision.HandLandmarker;
 using TMPro;
 using UnityEngine;
@@ -24,6 +25,19 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
     public DebugUI debugUI;
 
     public GameObject testModel;
+
+
+
+
+    public Transform wristBone, wrist1Bone, wrist2Bone, wrist3Bone, wrist4Bone, wrist5Bone;
+    public Transform thumb0Bone, thumb1Bone, thumb2Bone, thumb3Bone;
+    public Transform index0Bone, index1Bone, index2Bone, index3Bone, index4Bone;
+    public Transform middle0Bone, middle1Bone, middle2Bone, middle3Bone, middle4Bone;
+    public Transform ring0Bone, ring1Bone, ring2Bone, ring3Bone, ring4Bone;
+    public Transform pinky0Bone, pinky1Bone, pinky2Bone, pinky3Bone, pinky4Bone;
+
+
+    private Vector3[] handLandmarksWorldPositions;
 
 
     private Dictionary<string, bool> GetIndividualFingerStates(HandLandmarkerResult result, int handIndex)
@@ -200,7 +214,26 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
         return;
     }
 
-    Debug.Log("Hand landmarks detected, proceeding to iterate over them...");
+
+
+    // Update the pose based on the detected landmarks
+    for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
+    {
+        var handLandmarks = result.handLandmarks[handIndex].landmarks;
+
+        // Enqueue the UpdatePose action to be executed on the main thread
+        MainThreadDispatcher.Enqueue(() => UpdatePose(handLandmarks));
+    }
+
+
+
+
+
+
+      Debug.Log("Hand landmarks detected, proceeding to iterate over them...");
+
+
+
 
     int totalFingersCount = 0;
     bool leftHandUp = false;
@@ -334,6 +367,92 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
     }
 
 
+
+
+
+    private void UpdatePose(List<Mediapipe.Tasks.Components.Containers.NormalizedLandmark> landmarks)
+    {
+      if (landmarks == null || landmarks.Count < 21)
+        return;
+
+      float scaleFactor = 10f; // Adjust this according to your model's size
+
+      Vector3[] landmarks_world = new Vector3[landmarks.Count];
+      for (int i = 0; i < landmarks.Count; i++)
+      {
+        // Map MediaPipe coordinates to Unity coordinates with scaling and flipping Y
+        landmarks_world[i] = new Vector3(
+            landmarks[i].x * scaleFactor,            // Scale X
+            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y
+            landmarks[i].z * scaleFactor             // Invert and scale Z
+        );
+      }
+
+      // Set the wrist position directly from the wrist landmark (index 0)
+      wrist1Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
+      wrist2Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
+      wrist3Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
+      wrist4Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
+      wrist5Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
+
+      // Set finger bone positions using direct indices
+      SetFingerBonePositions(index0Bone, index1Bone, index2Bone, index3Bone, index4Bone, 1, 2, 3, 4, landmarks_world);
+      SetFingerBonePositions(middle0Bone, middle1Bone, middle2Bone, middle3Bone, middle4Bone, 5, 6, 7, 8, landmarks_world);
+      SetFingerBonePositions(ring0Bone, ring1Bone, ring2Bone, ring3Bone, ring4Bone, 9, 10, 11, 12, landmarks_world);
+      SetFingerBonePositions(pinky0Bone, pinky1Bone, pinky2Bone, pinky3Bone, pinky4Bone, 13, 14, 15, 16, landmarks_world);
+      SetThumbBonePositions(thumb0Bone, thumb1Bone, thumb2Bone, thumb3Bone, 17, 18, 19, landmarks_world);
+    }
+
+
+    private void SetFingerBonePositions(
+        Transform bone0, // Virtual bone between wrist and base
+        Transform bone1, // Base of the finger (metacarpal)
+        Transform bone2, // First joint (proximal phalanx)
+        Transform bone3, // Second joint (middle phalanx)
+        Transform bone4, // Tip of the finger (distal phalanx)
+        int baseIndex, // Index for base landmark
+        int firstJointIndex, // Index for first joint landmark
+        int secondJointIndex, // Index for second joint landmark
+        int thirdJointIndex, // Index for third joint landmark
+        Vector3[] landmarks_world) // Landmark positions
+    {
+      // Set the positions for the finger bones directly from the landmarks
+      bone0.position = (landmarks_world[0] + landmarks_world[baseIndex]) / 2f; // Midpoint between wrist and base
+      bone1.position = landmarks_world[baseIndex]; // Base of the finger
+      bone2.position = landmarks_world[firstJointIndex]; // First joint position
+      bone3.position = landmarks_world[secondJointIndex]; // Second joint position
+      bone4.position = landmarks_world[thirdJointIndex]; // Tip position
+    }
+
+
+
+
+
+    private void SetThumbBonePositions(
+        Transform bone0,
+        Transform bone1,
+        Transform bone2,
+        Transform bone3,
+        int baseIndex,
+        int firstJointIndex,
+        int secondJointIndex,
+        Vector3[] landmarks_world)
+    {
+      Vector3 wristPosition = landmarks_world[0];
+      Vector3 thumbBasePosition = landmarks_world[baseIndex];
+      Vector3 firstJointPosition = landmarks_world[firstJointIndex];
+      Vector3 secondJointPosition = landmarks_world[secondJointIndex];
+
+      // Debug log for positions
+      Debug.Log($"Thumb Positions - Wrist: {wristPosition}, Base: {thumbBasePosition}, 1st Joint: {firstJointPosition}, 2nd Joint: {secondJointPosition}");
+
+      bone0.position = (wristPosition + thumbBasePosition) / 2f;
+      bone1.position = thumbBasePosition;
+      bone2.position = firstJointPosition;
+      bone3.position = secondJointPosition;
+    }
+
+ 
 
   }
 }
