@@ -164,6 +164,9 @@ namespace Mediapipe {
     public bool HasB {
       get { return (_hasBits0 & 4) != 0; }
     }
+
+    public static UnityEngine.Color green { get; set; }
+
     /// <summary>Clears the value of the "b" field</summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

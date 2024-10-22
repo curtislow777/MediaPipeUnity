@@ -306,7 +306,7 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
             rightHandUp = fingersCount > 0; // Set flag if right hand is up
         }
 
-        Debug.Log(fingerStatus);
+        //Debug.Log(fingerStatus);
     }
 
     // Update total count message
@@ -394,7 +394,7 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       if (landmarks == null || landmarks.Count < 21)
         return;
 
-      float scaleFactor = 10f; // Adjust this according to your model's size
+      float scaleFactor = 10f; // Try different values based on your scene size
 
       Vector3[] landmarks_world = new Vector3[landmarks.Count];
       for (int i = 0; i < landmarks.Count; i++)
@@ -407,18 +407,24 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
         );
       }
 
+
+
       handLandmarksWorldPositions = new Vector3[landmarks.Count];
       for (int i = 0; i < landmarks.Count; i++)
       {
-        // Map MediaPipe coordinates to Unity coordinates with scaling and flipping Y
+        // Map normalized MediaPipe coordinates to Unity world coordinates with scaling
         handLandmarksWorldPositions[i] = new Vector3(
             landmarks[i].x * scaleFactor,            // Scale X
-            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y
-            landmarks[i].z * scaleFactor             // Invert and scale Z
+            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y (Unity Y is up)
+            landmarks[i].z * scaleFactor             // Scale Z (adjust this based on how Z values are given)
         );
       }
 
-      Debug.Log("Hand landmarks updated in HandLandmarkerRunner.");
+      for (int i = 0; i < handLandmarksWorldPositions.Length; i++)
+      {
+        Debug.Log($"Landmark {i}: Position = {handLandmarksWorldPositions[i]}");
+      }
+
 
       // Set the wrist position directly from the wrist landmark (index 0)
       wrist1Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
@@ -475,8 +481,6 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       Vector3 firstJointPosition = landmarks_world[firstJointIndex];
       Vector3 secondJointPosition = landmarks_world[secondJointIndex];
 
-      // Debug log for positions
-      Debug.Log($"Thumb Positions - Wrist: {wristPosition}, Base: {thumbBasePosition}, 1st Joint: {firstJointPosition}, 2nd Joint: {secondJointPosition}");
 
       bone0.position = (wristPosition + thumbBasePosition) / 2f;
       bone1.position = thumbBasePosition;
@@ -484,7 +488,24 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       bone3.position = secondJointPosition;
     }
 
- 
+
+
+    // Draw Gizmos to visually debug the hand landmarks
+    private void OnDrawGizmos()
+    {
+      if (handLandmarksWorldPositions == null || handLandmarksWorldPositions.Length == 0)
+        return;
+
+      // Set gizmo color
+      Gizmos.color = Color.green;
+
+      // Loop through the landmarks and draw a sphere at each world position
+      for (int i = 0; i < handLandmarksWorldPositions.Length; i++)
+      {
+        Gizmos.DrawSphere(handLandmarksWorldPositions[i], 1f); // You can adjust the size of the spheres here
+      }
+    }
+
 
   }
 }
