@@ -1,23 +1,26 @@
 using Mediapipe.Unity.Sample.HandLandmarkDetection;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class WeaponAttachment : MonoBehaviour
 {
-  public GameObject weapon; // The weapon GameObject
-  public HandLandmarkerRunner handLandmarkerRunner; // Reference to the HandLandmarkerRunner
+  public HandLandmarkerRunner handLandmarkerRunner; // Reference to the HandLandmarkerRunner script
 
   void Update()
   {
-    // Check if HandLandmarkerRunner is assigned
-    if (handLandmarkerRunner == null)
+    // Access the hand landmarks from the HandLandmarkerRunner
+    if (handLandmarkerRunner != null)
     {
-      Debug.LogError("HandLandmarkerRunner reference not assigned in WeaponAttachment!");
-      return;
+      Vector3[] handLandmarks = handLandmarkerRunner.GetHandLandmarksWorldPositions();
+      Debug.Log(handLandmarks);
+      // Check if the landmarks are available
+      if (handLandmarks != null && handLandmarks.Length > 0)
+      {
+        // Print each landmark's position
+        for (int i = 0; i < handLandmarks.Length; i++)
+        {
+          Debug.Log($"Landmark {i}: Position = {handLandmarks[i]}");
+        }
+      }
     }
-
-
-
   }
 }

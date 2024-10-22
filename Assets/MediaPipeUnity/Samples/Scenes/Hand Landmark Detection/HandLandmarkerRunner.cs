@@ -39,6 +39,12 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
 
     private Vector3[] handLandmarksWorldPositions;
 
+    // Add a public getter for the landmarks
+    public Vector3[] GetHandLandmarksWorldPositions()
+    {
+      return handLandmarksWorldPositions;
+    }
+
 
     private Dictionary<string, bool> GetIndividualFingerStates(HandLandmarkerResult result, int handIndex)
     {
@@ -216,14 +222,27 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
 
 
 
-    // Update the pose based on the detected landmarks
-    for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
+
+
+
+      // Iterate over the detected hands
+      for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
     {
         var handLandmarks = result.handLandmarks[handIndex].landmarks;
 
         // Enqueue the UpdatePose action to be executed on the main thread
         MainThreadDispatcher.Enqueue(() => UpdatePose(handLandmarks));
-    }
+
+        GetHandLandmarksWorldPositions();
+
+        // Print out each landmark's position (x, y, z)
+        for (int i = 0; i < handLandmarks.Count; i++)
+        {
+          var landmark = handLandmarks[i];
+        }
+      
+      
+      }
 
 
 
@@ -387,6 +406,19 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
             landmarks[i].z * scaleFactor             // Invert and scale Z
         );
       }
+
+      handLandmarksWorldPositions = new Vector3[landmarks.Count];
+      for (int i = 0; i < landmarks.Count; i++)
+      {
+        // Map MediaPipe coordinates to Unity coordinates with scaling and flipping Y
+        handLandmarksWorldPositions[i] = new Vector3(
+            landmarks[i].x * scaleFactor,            // Scale X
+            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y
+            landmarks[i].z * scaleFactor             // Invert and scale Z
+        );
+      }
+
+      Debug.Log("Hand landmarks updated in HandLandmarkerRunner.");
 
       // Set the wrist position directly from the wrist landmark (index 0)
       wrist1Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
