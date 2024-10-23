@@ -394,16 +394,16 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       if (landmarks == null || landmarks.Count < 21)
         return;
 
-      float scaleFactor = 10f; // Try different values based on your scene size
+      float scaleFactor = 1f; // Try different values based on your scene size
 
       Vector3[] landmarks_world = new Vector3[landmarks.Count];
       for (int i = 0; i < landmarks.Count; i++)
       {
-        // Map MediaPipe coordinates to Unity coordinates with scaling and flipping Y
+        // Remove the Y inversion and see how it behaves
         landmarks_world[i] = new Vector3(
-            landmarks[i].x * scaleFactor,            // Scale X
-            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y
-            landmarks[i].z * scaleFactor             // Invert and scale Z
+            landmarks[i].x * scaleFactor,
+            landmarks[i].y * scaleFactor,            // Test without inverting Y
+            landmarks[i].z * scaleFactor
         );
       }
 
@@ -490,11 +490,13 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
 
 
 
-    // Draw Gizmos to visually debug the hand landmarks
     private void OnDrawGizmos()
     {
       if (handLandmarksWorldPositions == null || handLandmarksWorldPositions.Length == 0)
+      {
+        Debug.LogWarning("No hand landmarks data available to draw Gizmos.");
         return;
+      }
 
       // Set gizmo color
       Gizmos.color = Color.green;
@@ -502,9 +504,11 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       // Loop through the landmarks and draw a sphere at each world position
       for (int i = 0; i < handLandmarksWorldPositions.Length; i++)
       {
-        Gizmos.DrawSphere(handLandmarksWorldPositions[i], 1f); // You can adjust the size of the spheres here
+        Gizmos.DrawSphere(handLandmarksWorldPositions[i], 0.2f); // Adjust size for better visibility
+        Debug.Log($"Drawing Gizmo Sphere at: {handLandmarksWorldPositions[i]}");
       }
     }
+
 
 
   }
