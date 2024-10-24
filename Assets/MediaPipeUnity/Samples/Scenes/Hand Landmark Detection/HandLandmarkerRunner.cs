@@ -24,26 +24,28 @@ namespace Mediapipe.Unity.Sample.HandLandmarkDetection
 
     public DebugUI debugUI;
 
-    public GameObject testModel;
+    public Transform wristBone;
+    public Transform thumb1Bone, thumb2Bone, thumb3Bone, thumb4Bone;
+    public Transform index1Bone, index2Bone, index3Bone, index4Bone;
+    public Transform middle1Bone, middle2Bone, middle3Bone, middle4Bone;
+    public Transform ring1Bone, ring2Bone, ring3Bone, ring4Bone;
+    public Transform pinky1Bone, pinky2Bone, pinky3Bone, pinky4Bone;
 
 
+    private List<List<Vector3>> handLandmarkPositions = new List<List<Vector3>>();
+    private List<List<Vector3>> handLandmarkPositionsCopy = new List<List<Vector3>>(); // Copy for Gizmos
 
 
-    public Transform wristBone, wrist1Bone, wrist2Bone, wrist3Bone, wrist4Bone, wrist5Bone;
-    public Transform thumb0Bone, thumb1Bone, thumb2Bone, thumb3Bone;
-    public Transform index0Bone, index1Bone, index2Bone, index3Bone, index4Bone;
-    public Transform middle0Bone, middle1Bone, middle2Bone, middle3Bone, middle4Bone;
-    public Transform ring0Bone, ring1Bone, ring2Bone, ring3Bone, ring4Bone;
-    public Transform pinky0Bone, pinky1Bone, pinky2Bone, pinky3Bone, pinky4Bone;
+    public float xyScaleFactor;
+    public float zScaleFactor;
+    public float wristOffset = -10f; // To adjust wrist depth position if needed
+    public float rotationSpeed = 10f; 
 
 
-    private Vector3[] handLandmarksWorldPositions;
-
-    // Add a public getter for the landmarks
-    public Vector3[] GetHandLandmarksWorldPositions()
-    {
-      return handLandmarksWorldPositions;
-    }
+    // Weapon transform to attach
+    public Transform weaponTransform;
+    public Vector3 weaponPositionOffset = Vector3.zero;  // Adjust if the weapon needs to be offset
+    public Vector3 weaponRotationOffset = Vector3.zero;  // Adjust for rotational offset
 
 
     private Dictionary<string, bool> GetIndividualFingerStates(HandLandmarkerResult result, int handIndex)
@@ -221,33 +223,38 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
     }
 
 
+      // Store positions for bones and gizmos
+      List<Vector3> landmarks = new List<Vector3>();
 
-
-
-
-      // Iterate over the detected hands
-      for (int handIndex = 0; handIndex < result.handLandmarks.Count; handIndex++)
-    {
-        var handLandmarks = result.handLandmarks[handIndex].landmarks;
-
-        // Enqueue the UpdatePose action to be executed on the main thread
-        MainThreadDispatcher.Enqueue(() => UpdatePose(handLandmarks));
-
-        GetHandLandmarksWorldPositions();
-
-        // Print out each landmark's position (x, y, z)
-        for (int i = 0; i < handLandmarks.Count; i++)
-        {
-          var landmark = handLandmarks[i];
-        }
-      
-      
+      // Convert landmarks from normalized MediaPipe coordinates to Unity space
+      foreach (var landmark in result.handLandmarks[0].landmarks) // assuming single hand for now
+      {
+        Vector3 unityPosition = NormalizeToUnity(landmark.x, landmark.y, landmark.z);
+        landmarks.Add(unityPosition);
       }
 
+      // Apply the landmarks to the hand bones
+      UpdatePose(landmarks);
 
+      // Store the landmarks for Gizmos drawing
+      lock (handLandmarkPositions)
+      {
+        handLandmarkPositions.Clear(); // Clear the old landmarks
+        handLandmarkPositions.Add(landmarks); // Add the new landmarks
+      }
 
+    // Ensure we have enough landmarks
+    if (landmarks.Count >= 21)
+    {
+        // Extract key points
+        Vector3 C = landmarks[0];  // Wrist
+        Vector3 D = landmarks[17]; // Pinky base
+        Vector3 A = landmarks[5];  // Index base
+        Vector3 B = landmarks[9];  // Middle base
 
-
+        // Call AttachWeapon with these key landmarks
+        AttachWeapon(A, B, C, D);
+    }
 
       Debug.Log("Hand landmarks detected, proceeding to iterate over them...");
 
@@ -338,6 +345,10 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
     debugUI.UpdateFingerStatus(combinedFingerStatus.TrimEnd('\n')); // Show which fingers are up for both hands
 
     _handLandmarkerResultAnnotationController.DrawLater(result);
+
+
+
+
 }
 
 
@@ -368,7 +379,7 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
       // Index Finger (indices 8 and 5)
       if (handLandmarks[8].y < handLandmarks[5].y) count++;
 
-      // Middle Finger (indices 12 and 9)
+      // Middle Finger (indices 12 and 9) 
       if (handLandmarks[12].y < handLandmarks[9].y) count++;
 
       // Ring Finger (indices 16 and 13)
@@ -388,125 +399,109 @@ private void OnHandLandmarkDetectionOutput(HandLandmarkerResult result, Image im
 
 
 
+    private Vector3 NormalizeToUnity(float x, float y, float z)
+    {
+      float unityX = x * xyScaleFactor;  // X-axis scaling
+      float unityZ = -z * zScaleFactor;  // Adjust the Z-axis, try not inverting it
+      float unityY = (1 - y) * xyScaleFactor;  // Invert the Y-axis
 
-    private void UpdatePose(List<Mediapipe.Tasks.Components.Containers.NormalizedLandmark> landmarks)
+      return new Vector3(unityX, unityY, unityZ);
+    }
+
+
+
+
+
+
+    // Draw spheres at each hand landmark position for debugging
+    private void OnDrawGizmos()
+    {
+      // Create a copy of the list before iterating
+      lock (handLandmarkPositions)
+      {
+        handLandmarkPositionsCopy = new List<List<Vector3>>(handLandmarkPositions);
+      }
+
+      if (handLandmarkPositionsCopy.Count == 0) return;
+
+      Gizmos.color = UnityEngine.Color.red;
+
+      foreach (var handLandmarks in handLandmarkPositionsCopy)
+      {
+        foreach (var landmark in handLandmarks)
+        {
+          Debug.Log($"Landmark Position: {landmark}");  // Log the position to check coordinates
+          Gizmos.DrawSphere(landmark, 0.05f); // Increase the size for better visibility
+        }
+      }
+    }
+
+
+
+    // Function to update the pose (apply hand landmarks to bones)
+    public void UpdatePose(List<Vector3> landmarks)
     {
       if (landmarks == null || landmarks.Count < 21)
         return;
 
-      float scaleFactor = 1f; // Try different values based on your scene size
-
-      Vector3[] landmarks_world = new Vector3[landmarks.Count];
-      for (int i = 0; i < landmarks.Count; i++)
+      // Use the dispatcher to ensure position updates happen on the main thread
+      MainThreadDispatcher.Enqueue(() =>
       {
-        // Remove the Y inversion and see how it behaves
-        landmarks_world[i] = new Vector3(
-            landmarks[i].x * scaleFactor,
-            landmarks[i].y * scaleFactor,            // Test without inverting Y
-            landmarks[i].z * scaleFactor
-        );
-      }
+        // Map the landmarks to the bones
+        wristBone.position = NormalizeToUnity(landmarks[0].x, landmarks[0].y, landmarks[0].z);
 
+        // Thumb
+        thumb1Bone.position = NormalizeToUnity(landmarks[1].x, landmarks[1].y, landmarks[1].z);
+        thumb2Bone.position = NormalizeToUnity(landmarks[2].x, landmarks[2].y, landmarks[2].z);
+        thumb3Bone.position = NormalizeToUnity(landmarks[3].x, landmarks[3].y, landmarks[3].z);
+        thumb4Bone.position = NormalizeToUnity(landmarks[4].x, landmarks[4].y, landmarks[4].z);
 
+        // Index Finger
+        index1Bone.position = NormalizeToUnity(landmarks[5].x, landmarks[5].y, landmarks[5].z);
+        index2Bone.position = NormalizeToUnity(landmarks[6].x, landmarks[6].y, landmarks[6].z);
+        index3Bone.position = NormalizeToUnity(landmarks[7].x, landmarks[7].y, landmarks[7].z);
+        index4Bone.position = NormalizeToUnity(landmarks[8].x, landmarks[8].y, landmarks[8].z);
 
-      handLandmarksWorldPositions = new Vector3[landmarks.Count];
-      for (int i = 0; i < landmarks.Count; i++)
-      {
-        // Map normalized MediaPipe coordinates to Unity world coordinates with scaling
-        handLandmarksWorldPositions[i] = new Vector3(
-            landmarks[i].x * scaleFactor,            // Scale X
-            (1 - landmarks[i].y) * scaleFactor,      // Invert and scale Y (Unity Y is up)
-            landmarks[i].z * scaleFactor             // Scale Z (adjust this based on how Z values are given)
-        );
-      }
+        // Middle Finger
+        middle1Bone.position = NormalizeToUnity(landmarks[9].x, landmarks[9].y, landmarks[9].z);
+        middle2Bone.position = NormalizeToUnity(landmarks[10].x, landmarks[10].y, landmarks[10].z);
+        middle3Bone.position = NormalizeToUnity(landmarks[11].x, landmarks[11].y, landmarks[11].z);
+        middle4Bone.position = NormalizeToUnity(landmarks[12].x, landmarks[12].y, landmarks[12].z);
 
-      for (int i = 0; i < handLandmarksWorldPositions.Length; i++)
-      {
-        Debug.Log($"Landmark {i}: Position = {handLandmarksWorldPositions[i]}");
-      }
+        // Ring Finger
+        ring1Bone.position = NormalizeToUnity(landmarks[13].x, landmarks[13].y, landmarks[13].z);
+        ring2Bone.position = NormalizeToUnity(landmarks[14].x, landmarks[14].y, landmarks[14].z);
+        ring3Bone.position = NormalizeToUnity(landmarks[15].x, landmarks[15].y, landmarks[15].z);
+        ring4Bone.position = NormalizeToUnity(landmarks[16].x, landmarks[16].y, landmarks[16].z);
 
-
-      // Set the wrist position directly from the wrist landmark (index 0)
-      wrist1Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
-      wrist2Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
-      wrist3Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
-      wrist4Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
-      wrist5Bone.position = landmarks_world[0]; // Ensure this is the wrist landmark
-
-      // Set finger bone positions using direct indices
-      SetFingerBonePositions(index0Bone, index1Bone, index2Bone, index3Bone, index4Bone, 1, 2, 3, 4, landmarks_world);
-      SetFingerBonePositions(middle0Bone, middle1Bone, middle2Bone, middle3Bone, middle4Bone, 5, 6, 7, 8, landmarks_world);
-      SetFingerBonePositions(ring0Bone, ring1Bone, ring2Bone, ring3Bone, ring4Bone, 9, 10, 11, 12, landmarks_world);
-      SetFingerBonePositions(pinky0Bone, pinky1Bone, pinky2Bone, pinky3Bone, pinky4Bone, 13, 14, 15, 16, landmarks_world);
-      SetThumbBonePositions(thumb0Bone, thumb1Bone, thumb2Bone, thumb3Bone, 17, 18, 19, landmarks_world);
+        // Pinky Finger
+        pinky1Bone.position = NormalizeToUnity(landmarks[17].x, landmarks[17].y, landmarks[17].z);
+        pinky2Bone.position = NormalizeToUnity(landmarks[18].x, landmarks[18].y, landmarks[18].z);
+        pinky3Bone.position = NormalizeToUnity(landmarks[19].x, landmarks[19].y, landmarks[19].z);
+        pinky4Bone.position = NormalizeToUnity(landmarks[20].x, landmarks[20].y, landmarks[20].z);
+      });
     }
 
-
-    private void SetFingerBonePositions(
-        Transform bone0, // Virtual bone between wrist and base
-        Transform bone1, // Base of the finger (metacarpal)
-        Transform bone2, // First joint (proximal phalanx)
-        Transform bone3, // Second joint (middle phalanx)
-        Transform bone4, // Tip of the finger (distal phalanx)
-        int baseIndex, // Index for base landmark
-        int firstJointIndex, // Index for first joint landmark
-        int secondJointIndex, // Index for second joint landmark
-        int thirdJointIndex, // Index for third joint landmark
-        Vector3[] landmarks_world) // Landmark positions
+    private void AttachWeapon(Vector3 A, Vector3 B, Vector3 C, Vector3 D)
     {
-      // Set the positions for the finger bones directly from the landmarks
-      bone0.position = (landmarks_world[0] + landmarks_world[baseIndex]) / 2f; // Midpoint between wrist and base
-      bone1.position = landmarks_world[baseIndex]; // Base of the finger
-      bone2.position = landmarks_world[firstJointIndex]; // First joint position
-      bone3.position = landmarks_world[secondJointIndex]; // Second joint position
-      bone4.position = landmarks_world[thirdJointIndex]; // Tip position
-    }
+      // Calculate midpoints
+      Vector3 K = (A + B) / 2f; // Midpoint between 5 and 9
+      Vector3 V = (C + D) / 2f; // Midpoint between 0 and 17
 
+      // Calculate normal vectors
+      Vector3 N1 = Vector3.Cross(C - D, C - K).normalized;  // Normal to the palm
+      Vector3 Y = (A + B + K) / 3f;  // Midpoint of the triangle formed by A, B, and K
+      Vector3 N2 = (V - Y).normalized;  // Second normal for full rotation
 
+      // Apply rotation to the weapon based on these vectors
+      Quaternion targetRotation = Quaternion.LookRotation(N2, N1);  // N2 for forward, N1 for up
 
-
-
-    private void SetThumbBonePositions(
-        Transform bone0,
-        Transform bone1,
-        Transform bone2,
-        Transform bone3,
-        int baseIndex,
-        int firstJointIndex,
-        int secondJointIndex,
-        Vector3[] landmarks_world)
-    {
-      Vector3 wristPosition = landmarks_world[0];
-      Vector3 thumbBasePosition = landmarks_world[baseIndex];
-      Vector3 firstJointPosition = landmarks_world[firstJointIndex];
-      Vector3 secondJointPosition = landmarks_world[secondJointIndex];
-
-
-      bone0.position = (wristPosition + thumbBasePosition) / 2f;
-      bone1.position = thumbBasePosition;
-      bone2.position = firstJointPosition;
-      bone3.position = secondJointPosition;
-    }
-
-
-
-    private void OnDrawGizmos()
-    {
-      if (handLandmarksWorldPositions == null || handLandmarksWorldPositions.Length == 0)
+      // Position and rotate the weapon
+      MainThreadDispatcher.Enqueue(() =>
       {
-        Debug.LogWarning("No hand landmarks data available to draw Gizmos.");
-        return;
-      }
-
-      // Set gizmo color
-      Gizmos.color = Color.green;
-
-      // Loop through the landmarks and draw a sphere at each world position
-      for (int i = 0; i < handLandmarksWorldPositions.Length; i++)
-      {
-        Gizmos.DrawSphere(handLandmarksWorldPositions[i], 0.2f); // Adjust size for better visibility
-        Debug.Log($"Drawing Gizmo Sphere at: {handLandmarksWorldPositions[i]}");
-      }
+        weaponTransform.position = V + weaponPositionOffset; // Attach at V, with optional offset
+        weaponTransform.rotation = Quaternion.Slerp(weaponTransform.rotation, targetRotation * Quaternion.Euler(weaponRotationOffset), Time.deltaTime * rotationSpeed);
+      });
     }
 
 
